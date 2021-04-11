@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
@@ -16,9 +17,9 @@ import (
 var gvr = instancev1.GroupVersion.WithResource("instances")
 
 type Service interface {
-	CreateInstance(ctx context.Context, instance *instancev1.Instance) error
-	GetInstance(id string) (*instancev1.Instance, error)
-	DeleteInstance(id string) error
+	CreateInstance(ctx context.Context, instance *instancev1.Instance) (*instancev1.Instance, error)
+	GetInstance(ctx context.Context, id string) (*instancev1.Instance, error)
+	DeleteInstance(ctx context.Context, id string) (*instancev1.Instance, error)
 }
 
 func NewService(client dynamic.Interface) Service {
@@ -31,10 +32,10 @@ type kube struct {
 	client dynamic.Interface
 }
 
-func (k *kube) CreateInstance(ctx context.Context, instance *instancev1.Instance) error {
+func (k *kube) CreateInstance(ctx context.Context, instance *instancev1.Instance) (*instancev1.Instance, error) {
 	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(instance)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	u := &unstructured.Unstructured{}
@@ -43,14 +44,14 @@ func (k *kube) CreateInstance(ctx context.Context, instance *instancev1.Instance
 	if _, err := k.client.Resource(gvr).
 		Namespace(instance.Namespace).
 		Create(ctx, u, metav1.CreateOptions{}); err != nil {
-		return err
+		return nil, err
 	}
 
 	watcher, err := k.client.Resource(gvr).Watch(ctx, metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("metadata.name=%s", instance.Name),
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer watcher.Stop()
@@ -63,25 +64,52 @@ func (k *kube) CreateInstance(ctx context.Context, instance *instancev1.Instance
 			var instanceObj instancev1.Instance
 			if err := runtime.DefaultUnstructuredConverter.
 				FromUnstructured(watched.UnstructuredContent(), &instanceObj); err != nil {
-				return err
+				return nil, err
 			}
 
 			// If an IP has been assigned to the Instance we know that the actual
 			// server has been created
 			if len(instanceObj.Status.IP) > 0 {
 				log.Printf("Instance has been scheduled with IP %s\n", instanceObj.Status.IP)
-				break
+				return &instanceObj, nil
 			}
 		}
 	}
 
-	return nil
+	return nil, errors.New("could not create instance")
 }
 
-func (k *kube) GetInstance(id string) (*instancev1.Instance, error) {
-	return nil, nil
+func (k *kube) GetInstance(ctx context.Context, id string) (*instancev1.Instance, error) {
+	list, err := k.client.Resource(gvr).List(context.Background(), metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("status.id=%s", id),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	var instanceList instancev1.InstanceList
+
+	if err := runtime.DefaultUnstructuredConverter.
+		FromUnstructured(list.UnstructuredContent(), &instanceList); err != nil {
+		return nil, err
+
+	}
+
+	if len(instanceList.Items) == 0 {
+		return nil, errors.New("no instance found")
+	}
+
+	return &instanceList.Items[0], nil
 }
 
-func (k *kube) DeleteInstance(id string) error {
-	return nil
+func (k *kube) DeleteInstance(ctx context.Context, id string) (*instancev1.Instance, error) {
+	instance, err := k.GetInstance(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := k.client.Resource(gvr).Delete(ctx, instance.Name, metav1.DeleteOptions{}); err != nil {
+		return nil, err
+	}
+	return instance, nil
 }

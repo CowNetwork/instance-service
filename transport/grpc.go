@@ -9,15 +9,27 @@ import (
 )
 
 type grpcServer struct {
-	create grpctransport.Handler
+	createHandler grpctransport.Handler
+	deleteHandler grpctransport.Handler
+	getHandler    grpctransport.Handler
 }
 
 func New(kubesvc kubernetes.Service) *grpc.Server {
 	grpcServer := &grpcServer{
-		create: grpctransport.NewServer(
+		getHandler: grpctransport.NewServer(
 			endpoint.MakeGetInstanceEndpoint(kubesvc),
 			decodeGetInstanceRequest,
 			encodeGetInstanceResponse,
+		),
+		deleteHandler: grpctransport.NewServer(
+			endpoint.MakeDeleteInstanceEndpoint(kubesvc),
+			decodeDeleteInstanceRequest,
+			encodeDeleteInstanceResponse,
+		),
+		createHandler: grpctransport.NewServer(
+			endpoint.MakeCreateInstanceEndpoint(kubesvc),
+			decodeCreateInstanceRequest,
+			encodeCreateInstanceReponse,
 		),
 	}
 	handle := grpc.NewServer()

@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/cownetwork/instance-service/endpoint"
-	"github.com/cownetwork/mooapis-go/cow/instance/v1"
 	instanceapiv1 "github.com/cownetwork/mooapis-go/cow/instance/v1"
 )
 
 func (s *grpcServer) Get(ctx context.Context, req *instanceapiv1.GetInstanceRequest) (*instanceapiv1.GetInstanceResponse, error) {
-	_, resp, err := s.create.ServeGRPC(ctx, req)
+	_, resp, err := s.getHandler.ServeGRPC(ctx, req)
 	if err != nil {
 		return nil, err // TODO: log err
 	}
-	return resp.(*instance.GetInstanceResponse), nil
+	return resp.(*instanceapiv1.GetInstanceResponse), nil
 }
 
 func decodeGetInstanceRequest(_ context.Context, req interface{}) (interface{}, error) {
