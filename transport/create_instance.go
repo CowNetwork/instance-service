@@ -7,7 +7,6 @@ import (
 
 	instancev1 "github.com/cownetwork/instance-controller/api/v1"
 	"github.com/cownetwork/instance-service/endpoint"
-	"github.com/cownetwork/mooapis-go/cow/instance/v1"
 	instanceapiv1 "github.com/cownetwork/mooapis-go/cow/instance/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -31,7 +30,7 @@ func decodeCreateInstanceRequest(_ context.Context, req interface{}) (interface{
 			TemplateName:         create.GetInfo().TemplateName,
 			TemplateInstanceName: create.GetInfo().GetInstanceName(),
 		}, nil
-	case *instance.CreateInstanceRequest_Manifest:
+	case *instanceapiv1.CreateInstanceRequest_Manifest:
 		jsonbytes, err := protojson.Marshal(create)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %v", op, err)
