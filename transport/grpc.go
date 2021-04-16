@@ -3,6 +3,7 @@ package transport
 import (
 	"github.com/cownetwork/instance-service/endpoint"
 	"github.com/cownetwork/instance-service/kubernetes"
+	"github.com/cownetwork/instance-service/template"
 	instanceapiv1 "github.com/cownetwork/mooapis-go/cow/instance/v1"
 	grpctransport "github.com/go-kit/kit/transport/grpc"
 	"google.golang.org/grpc"
@@ -10,24 +11,24 @@ import (
 
 type grpcServer struct {
 	createHandler grpctransport.Handler
-	deleteHandler grpctransport.Handler
+	endHandler    grpctransport.Handler
 	getHandler    grpctransport.Handler
 }
 
-func New(kubesvc kubernetes.Service) *grpc.Server {
+func New(kubesvc kubernetes.Service, templatesvc template.Service) *grpc.Server {
 	grpcServer := &grpcServer{
 		getHandler: grpctransport.NewServer(
 			endpoint.MakeGetInstanceEndpoint(kubesvc),
 			decodeGetInstanceRequest,
 			encodeGetInstanceResponse,
 		),
-		deleteHandler: grpctransport.NewServer(
-			endpoint.MakeDeleteInstanceEndpoint(kubesvc),
-			decodeDeleteInstanceRequest,
-			encodeDeleteInstanceResponse,
+		endHandler: grpctransport.NewServer(
+			endpoint.MakeEndInstanceEndpoint(kubesvc),
+			decodeEndInstanceRequest,
+			encodeEndInstanceResponse,
 		),
 		createHandler: grpctransport.NewServer(
-			endpoint.MakeCreateInstanceEndpoint(kubesvc),
+			endpoint.MakeCreateInstanceEndpoint(kubesvc, templatesvc),
 			decodeCreateInstanceRequest,
 			encodeCreateInstanceReponse,
 		),
