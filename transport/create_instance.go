@@ -1,10 +1,16 @@
 package transport
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 
+	instancev1 "github.com/cownetwork/instance-controller/api/v1"
 	"github.com/cownetwork/instance-service/endpoint"
+	"github.com/cownetwork/mooapis-go/cow/instance/v1"
 	instanceapiv1 "github.com/cownetwork/mooapis-go/cow/instance/v1"
+	"google.golang.org/protobuf/encoding/protojson"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 func (s *grpcServer) Create(ctx context.Context, req *instanceapiv1.CreateInstanceRequest) (*instanceapiv1.CreateInstanceResponse, error) {
@@ -16,10 +22,33 @@ func (s *grpcServer) Create(ctx context.Context, req *instanceapiv1.CreateInstan
 }
 
 func decodeCreateInstanceRequest(_ context.Context, req interface{}) (interface{}, error) {
+	const op = "transport/decodeCreateInstanceRequest"
 	create := req.(*instanceapiv1.CreateInstanceRequest)
-	return &endpoint.CreateInstanceRequest{
-		Manifest: create.Manifest,
-	}, nil
+
+	switch x := create.Instance.(type) {
+	case *instanceapiv1.CreateInstanceRequest_Info:
+		return endpoint.CreateInstanceRequest{
+			TemplateName:         create.GetInfo().TemplateName,
+			TemplateInstanceName: create.GetInfo().GetInstanceName(),
+		}, nil
+	case *instance.CreateInstanceRequest_Manifest:
+		jsonbytes, err := protojson.Marshal(create)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %v", op, err)
+		}
+		decoder := yaml.NewYAMLToJSONDecoder(bytes.NewReader(jsonbytes))
+		instance := &instancev1.Instance{}
+		if err := decoder.Decode(instance); err != nil {
+			return nil, fmt.Errorf("%s: %v", op, err)
+		}
+		return endpoint.CreateInstanceRequest{
+			Instance: instance,
+		}, nil
+	case nil:
+		return nil, fmt.Errorf("%s: Instance field must be set", op)
+	default:
+		return nil, fmt.Errorf("%s: unknown type for Instance field (%T)", op, x)
+	}
 }
 
 func encodeCreateInstanceReponse(_ context.Context, resp interface{}) (interface{}, error) {
