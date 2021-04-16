@@ -8,22 +8,22 @@ import (
 	"github.com/go-kit/kit/endpoint"
 )
 
-type DeleteInstanceRequest struct {
+type EndInstanceRequest struct {
 	ID string
 }
 
-type DeleteInstanceResponse struct {
+type EndInstanceResponse struct {
 	Instance *instancev1.Instance
 }
 
-func MakeDeleteInstanceEndpoint(svc kubernetes.Service) endpoint.Endpoint {
+func MakeEndInstanceEndpoint(svc kubernetes.Service) endpoint.Endpoint {
 	return func(ctx context.Context, req interface{}) (interface{}, error) {
-		del := req.(DeleteInstanceRequest)
+		del := req.(EndInstanceRequest)
 		instance, err := svc.DeleteInstance(ctx, del.ID)
 		if err != nil {
 			return nil, err
 		}
-		return DeleteInstanceResponse{
+		return EndInstanceResponse{
 			Instance: instance,
 		}, nil
 	}

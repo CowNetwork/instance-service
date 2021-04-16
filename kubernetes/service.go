@@ -108,8 +108,8 @@ func (k *kube) DeleteInstance(ctx context.Context, id string) (*instancev1.Insta
 	if err != nil {
 		return nil, err
 	}
-	if err := k.client.Resource(gvr).Delete(ctx, instance.Name, metav1.DeleteOptions{}); err != nil {
-		return nil, err
-	}
+
+	instance.Status.State = instancev1.StateEnding
+
 	return instance, nil
 }
